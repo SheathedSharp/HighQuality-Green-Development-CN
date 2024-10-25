@@ -1,14 +1,13 @@
 <!--
  * @Author: hiddenSharp429 z404878860@163.com
- * @Date: 2024-10-25 23:27:56
+ * @Date: 2024-10-25 15:58:16
  * @LastEditors: hiddenSharp429 z404878860@163.com
- * @LastEditTime: 2024-10-25 23:31:32
+ * @LastEditTime: 2024-10-25 23:28:30
  * @FilePath: /2024_tjjm/README.md
  * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
 -->
 # HQ_development_score_prediction
-
-## 1. Project Structure
+## 1. 项目结构
 ```
 HighQuality-Green-Development-CN/
 ├── data/
@@ -46,80 +45,64 @@ HighQuality-Green-Development-CN/
 └── run_split_data_by_province.py
 ```
 
+## 2. 数据处理步骤
+正常的顺序如下
+1. 先查看缺失值情况
+2. 将数据集按照省份分割
+3. 查看散点图
+4. 查看多项式回归填充效果
+5. 使用多项式回归填充缺失值
 
-## 2. Data Processing Steps
-
-The normal sequence is as follows:
-
-1. Check for missing values
-2. Split the dataset by province
-3. View scatter plots
-4. Check the effect of polynomial regression imputation
-5. Use polynomial regression to impute missing values
-
-For help with all file parameters, use `python <file_name.py> -h`.
-
-### 2.1 Check Missing Values
+所有文件的传参可以使用`python <file_name.py> -h`来获取帮助
+### 2.1 缺失值查看
 ```bash
 python check_missing_value.py ./data/statistical/raw/data_origin.xlsx
 ```
 
-### 2.2 Split Data by Province
+### 2.2 将数据分割成若干个省份的数据
 ```bash
 python run_split_data_by_province.py ./data/statistical/raw/data_origin.xlsx ./data/statistical/processed/data_region.xlsx
 ```
-
-
-### 2.3 View Scatter Plots
+### 2.3 散点查看
 ```bash
 python run_scatter_plot.py ./data/statistical/processed/data_region.xlsx
 ```
 
-
-### 2.4 Check Polynomial Regression Imputation Effect
-```bash
+### 2.4 查看多项式回归的填充效果
+```bash 
 python run_check_poly_regression.py ./data/statistical/processed/data_region.xlsx
 ```
 
-### 2.5 Impute Missing Values Using Polynomial Regression
+### 2.5 使用多项式回归填充缺失值
 ```bash
 python run_missing_value_imputation.py ./data/statistical/processed/data_region.xlsx ./data/statistical/processed/data_region_merged.xlsx
 ```
 
+## 3. 模型训练以及预测步骤
+### 3.1 第一部分
+在2002到2023年中验证模型的预测的性能，将会按照如下步骤进行：
+1. 划分训练集和测试集的特征和标签
+2. 将训练集和测试集的特征输入到三种不同的LSTM模型中
+3. 验证模型的预测性能
+4. 选择最佳模型并保存，以备后续预测后三年的绿色经济得分的使用
 
-## 3. Model Training and Prediction Steps
+### 3.2 第二部分
+新增2024到2026年的数据，并且预测其绿色经济得分，将会按照如下步骤进行：
+1. 往表中新增的2024到2026年的数据，并且初始化为0
+2. 使用ARIMA进行2024到2026年的各个属性列的填充
+3. 利用填充好的后三年数据新表，加载相应的模型后进行后三年的绿色高质量发展指标的预测
 
-### 3.1 Part One
 
-To validate the model's prediction performance from 2002 to 2023, follow these steps:
-
-1. Split features and labels into training and test sets
-2. Input the features of the training and test sets into three different LSTM models
-3. Validate the model's prediction performance
-4. Select the best model and save it for future use in predicting green economy scores for the next three years
-
-### 3.2 Part Two
-
-To add data for 2024 to 2026 and predict their green economy scores, follow these steps:
-
-1. Add data for 2024 to 2026 to the table and initialize it to 0
-2. Use ARIMA to fill in the attribute columns for 2024 to 2026
-3. Use the filled data for the next three years, load the appropriate model, and predict the green high-quality development indicators for the next three years
-
-### 3.3 Run
+### 3.3 运行
 ```bash
 python main.py
 ```
 
-
-
-## 4. Install Dependencies
-Install the required dependencies:
+## 4. 依赖安装
 ```bash
 pip install -r requirements.txt
 ```
 
-## 5. Notes
-
-- Ensure all necessary data files are placed in the correct directories before running the scripts.
-- It is recommended to use a virtual environment to run this project to avoid dependency conflicts.
+## 5. 注意事项
+- 确保在运行脚本之前，所有必要的数据文件都已经放置在正确的目录中。
+- 建议使用conda虚拟环境来运行此项目，以避免依赖冲突。
