@@ -2,47 +2,13 @@
  * @Author: hiddenSharp429 z404878860@163.com
  * @Date: 2024-10-25 15:58:16
  * @LastEditors: hiddenSharp429 z404878860@163.com
- * @LastEditTime: 2024-10-26 11:21:14
+ * @LastEditTime: 2024-10-26 14:25:14
 -->
 
 # HQ_development_score_prediction
-## 1. 项目结构
-```
-HighQuality-Green-Development-CN/
-├── data/
-│ └── statistical/
-│ ├── raw/
-│ │ └── data_origin.xlsx
-│ ├── processed/
-│ │ ├── data_region.xlsx
-│ │ └── data_region_merged.xlsx
-│ └── output/
-│ └── future_predictions.xlsx
-│
-├── src/
-│ ├── data_processing/
-│ │ ├── init.py
-│ │ ├── data_preparation.py
-│ │ └── missing_value_imputation.py
-│ ├── models/
-│ │ ├── init.py
-│ │ ├── lstm_models.py
-│ │ └── model_evaluation.py
-│ └── utils/
-│ ├── init.py
-│ └── visualization.py
-│
-├── models/
-│ └── best_model.h5
-│
-├── config.py
-├── main.py
-├── requirements.txt
-├── run_check_poly_regression.py
-├── run_missing_value_imputation.py
-├── run_scatter_plot.py
-└── run_split_data_by_province.py
-```
+## 1. 项目概况
+该项目是基于LSTM的三种模型，去预测未来三年中国各省份的绿色高质量发展指标的得分。
+
 
 ## 2. 数据处理步骤
 正常的顺序如下
@@ -85,16 +51,20 @@ python run_missing_value_imputation.py ./data/statistical/processed/data_region.
 3. 验证模型的预测性能
 4. 选择最佳模型并保存，以备后续预测后三年的绿色经济得分的使用
 
+使用`train_model.py`来完成上述步骤
+```bash
+python train_model.py
+```
+
 ### 3.2 第二部分
 新增2024到2026年的数据，并且预测其绿色经济得分，将会按照如下步骤进行：
 1. 往表中新增的2024到2026年的数据，并且初始化为0
 2. 使用ARIMA进行2024到2026年的各个属性列的填充
 3. 利用填充好的后三年数据新表，加载相应的模型后进行后三年的绿色高质量发展指标的预测
 
-
-### 3.3 运行
+使用`predict_future_score.py`来完成上述步骤
 ```bash
-python main.py
+python predict_future_score.py
 ```
 
 ## 4. 依赖安装

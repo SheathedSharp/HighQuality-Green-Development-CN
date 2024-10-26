@@ -2,48 +2,13 @@
  * @Author: hiddenSharp429 z404878860@163.com
  * @Date: 2024-10-25 23:27:56
  * @LastEditors: hiddenSharp429 z404878860@163.com
- * @LastEditTime: 2024-10-26 11:19:42
+ * @LastEditTime: 2024-10-26 14:25:18
 -->
 
 # HQ_development_score_prediction
 
-## 1. Project Structure
-```
-HighQuality-Green-Development-CN/
-├── data/
-│ └── statistical/
-│ ├── raw/
-│ │ └── data_origin.xlsx
-│ ├── processed/
-│ │ ├── data_region.xlsx
-│ │ └── data_region_merged.xlsx
-│ └── output/
-│ └── future_predictions.xlsx
-│
-├── src/
-│ ├── data_processing/
-│ │ ├── init.py
-│ │ ├── data_preparation.py
-│ │ └── missing_value_imputation.py
-│ ├── models/
-│ │ ├── init.py
-│ │ ├── lstm_models.py
-│ │ └── model_evaluation.py
-│ └── utils/
-│ ├── init.py
-│ └── visualization.py
-│
-├── models/
-│ └── best_model.h5
-│
-├── config.py
-├── main.py
-├── requirements.txt
-├── run_check_poly_regression.py
-├── run_missing_value_imputation.py
-├── run_scatter_plot.py
-└── run_split_data_by_province.py
-```
+## 1. Project Overview
+This project is a three-year prediction of the green high-quality development indicators for each province in China based on three LSTM models.
 
 
 ## 2. Data Processing Steps
@@ -97,6 +62,11 @@ To validate the model's prediction performance from 2002 to 2023, follow these s
 3. Validate the model's prediction performance
 4. Select the best model and save it for future use in predicting green economy scores for the next three years
 
+use `train_model.py` to complete the above steps
+```bash
+python train_model.py
+```
+
 ### 3.2 Part Two
 
 To add data for 2024 to 2026 and predict their green economy scores, follow these steps:
@@ -105,11 +75,10 @@ To add data for 2024 to 2026 and predict their green economy scores, follow thes
 2. Use ARIMA to fill in the attribute columns for 2024 to 2026
 3. Use the filled data for the next three years, load the appropriate model, and predict the green high-quality development indicators for the next three years
 
-### 3.3 Run
+use `predict_future_score.py` to complete the above steps
 ```bash
-python main.py
+python predict_future_score.py
 ```
-
 
 
 ## 4. Install Dependencies
