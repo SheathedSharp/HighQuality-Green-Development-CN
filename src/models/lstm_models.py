@@ -2,8 +2,9 @@
 Author: hiddenSharp429 z404878860@163.com
 Date: 2024-10-25 15:42:19
 LastEditors: hiddenSharp429 z404878860@163.com
-LastEditTime: 2024-10-26 13:14:20
+LastEditTime: 2024-10-26 13:51:34
 '''
+import os
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -134,6 +135,10 @@ def train_model(model, X_train, y_train, X_test, y_test, epochs=100, batch_size=
             break
 
     model.load_state_dict(torch.load('best_model.pth'))
+    
+    # delete the best_model.pth file
+    os.remove('best_model.pth')
+
     return model
 
 def traditional_LSTM_model(X_train, y_train, X_test, y_test):
