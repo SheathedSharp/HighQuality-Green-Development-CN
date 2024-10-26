@@ -2,10 +2,9 @@
  * @Author: hiddenSharp429 z404878860@163.com
  * @Date: 2024-10-25 15:58:16
  * @LastEditors: hiddenSharp429 z404878860@163.com
- * @LastEditTime: 2024-10-25 23:28:30
- * @FilePath: /2024_tjjm/README.md
- * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
+ * @LastEditTime: 2024-10-26 11:21:14
 -->
+
 # HQ_development_score_prediction
 ## 1. 项目结构
 ```
