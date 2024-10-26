@@ -2,7 +2,7 @@
 Author: hiddenSharp429 z404878860@163.com
 Date: 2024-10-25 15:42:33
 LastEditors: hiddenSharp429 z404878860@163.com
-LastEditTime: 2024-10-26 12:44:20
+LastEditTime: 2024-10-26 14:06:55
 '''
 
 import torch
@@ -12,6 +12,8 @@ import matplotlib.pyplot as plt
 from sklearn import preprocessing
 from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 from torch.utils.data import TensorDataset, DataLoader
+
+import config
 
 def evaluate_model_performance(X_test, y_test, model=None, pre_model_url=''):
     """
@@ -61,13 +63,13 @@ def evaluate_model_performance(X_test, y_test, model=None, pre_model_url=''):
 
     # Calculate performance metrics
     mse = mean_squared_error(y_test, y_pred)
-    print('均方误差: ', mse)
+    print('MSE: ', mse)
     mae = mean_absolute_error(y_test, y_pred)
-    print('平均绝对误差: ', mae)
+    print('MAE: ', mae)
     r2 = r2_score(y_test, y_pred)
-    print('R方值: ', r2)
+    print('R2: ', r2)
     rmse = np.sqrt(mse)
-    print('均方根误差: ', rmse)
+    print('RMSE: ', rmse)
 
     region_columns_name = ['上海市', '云南省', '内蒙古自治区', '北京市', '吉林省', '四川省', '天津市', '宁夏回族自治区', '安徽省', '山东省', '山西省', '广东省', '广西壮族自治区', '新疆维吾尔自治区', '江苏省', '江西省', '河北省', '河南省', '浙江省', '海南省', '湖北省', '湖南省', '甘肃省', '福建省', '西藏自治区', '贵州省', '辽宁省', '重庆市', '陕西省', '青海省', '黑龙江省']
 
@@ -95,7 +97,15 @@ def evaluate_model_performance(X_test, y_test, model=None, pre_model_url=''):
     plt.title('三十一省份绿色经济得分预测结果对比图')
     plt.ylabel('绿色经济得分')
     plt.legend()
-    plt.show()
+
+    # random picture name
+    picture_name = str(np.random.randint(1000000)) + '.png'
+
+    # don't show the figure, just save it
+    plt.savefig(config.OUTPUT_GRAPH_PATH + '/' + picture_name)
+    
+    # print the picture name and the path
+    print('The picture name is: ', picture_name, 'and the path is: ', config.OUTPUT_GRAPH_PATH + '/' + picture_name)
 
 def save_model(model, filename):
     """
@@ -126,7 +136,7 @@ def prediction_future_three_years_HQ_score(input_file_path, output_file_path, pr
     None
     -----------
 
-    该函数用于预测未来��年（2024-2026年）的各省份的绿色经济得分。
+    该函数用于预测未来三年（2024-2026年）的各省份的绿色经济得分。
     它从输入文件中读取数据，对数据进行预处理，加载训练好的模型，
     并进行预测。然后将预测结果保存到输出文件中。
 
@@ -175,10 +185,17 @@ def prediction_future_three_years_HQ_score(input_file_path, output_file_path, pr
     X = X.values.reshape((X.shape[0], 1, X.shape[1]))
 
     # Load the model
-    model = load_model(pre_model_url)
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    model = torch.load(pre_model_url)
+    model.to(device)
+    model.eval()
+
+    # Convert X to PyTorch tensor
+    X_tensor = torch.FloatTensor(X).to(device)
 
     # Make predictions on the data
-    y_pred = model.predict(X)
+    with torch.no_grad():
+        y_pred = model(X_tensor).cpu().numpy()
 
     # Add the prediction results to the original data
     predict_data['得分'] = y_pred.squeeze()
