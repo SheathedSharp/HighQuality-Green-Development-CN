@@ -2,7 +2,7 @@
 Author: hiddenSharp429 z404878860@163.com
 Date: 2024-10-26 13:25:29
 LastEditors: hiddenSharp429 z404878860@163.com
-LastEditTime: 2024-10-26 13:34:25
+LastEditTime: 2024-10-26 14:05:20
 '''
 
 import pandas as pd
@@ -43,7 +43,7 @@ def train_model():
     evaluate_model_performance(X_test, y_test, model=model)
 
     ## Save model
-    save_model(model, config.MODEL_PATH + "/" + model_name + ".h5")
+    save_model(model, config.MODEL_PATH + "/" + model_name + ".pth")
 
 if __name__ == "__main__":
     train_model()
