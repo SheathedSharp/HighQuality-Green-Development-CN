@@ -2,15 +2,16 @@
 Author: hiddenSharp429 z404878860@163.com
 Date: 2024-10-25 15:42:33
 LastEditors: hiddenSharp429 z404878860@163.com
-LastEditTime: 2024-10-26 12:24:59
+LastEditTime: 2024-10-26 12:44:20
 '''
 
-from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
-from keras.models import load_model
+import torch
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 from sklearn import preprocessing
+from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
+from torch.utils.data import TensorDataset, DataLoader
 
 def evaluate_model_performance(X_test, y_test, model=None, pre_model_url=''):
     """
@@ -38,18 +39,25 @@ def evaluate_model_performance(X_test, y_test, model=None, pre_model_url=''):
     返回:
     None
     """
-
-    region_columns_name = ['上海市', '云南省', '内蒙古自治区', '北京市', '吉林省', '四川省', '天津市', '宁夏回族自治区', '安徽省', '山东省', '山西省', '广东省', '广西壮族自治区', '新疆维吾尔自治区', '江苏省', '江西省', '河北省', '河南省', '浙江省', '海南省', '湖北省', '湖南省', '甘肃省', '福建省', '西藏自治区', '贵州省', '辽宁省', '重庆市', '陕西省', '青海省', '黑龙江省']
-
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    
     # If the URL of the pre-trained model is provided, load the optimal trained model
-    if pre_model_url!= '':
-        model = load_model(pre_model_url)
+    if pre_model_url:
+        model = torch.load(pre_model_url)
+    
+    model.to(device)
+    model.eval()
+
+    X_test_tensor = torch.FloatTensor(X_test).to(device)
+    y_test_tensor = torch.FloatTensor(y_test).to(device)
 
     # Make predictions on the test set
-    y_pred = model.predict(X_test)
+    with torch.no_grad():
+        # Adjust the shape of the prediction results to convert them to a one-dimensional array
+        y_pred = model(X_test_tensor).cpu().numpy().squeeze()
 
-    # Adjust the shape of the prediction results to convert them to a one-dimensional array
-    y_pred = y_pred.squeeze()
+    y_test = y_test_tensor.cpu().numpy()
+
 
     # Calculate performance metrics
     mse = mean_squared_error(y_test, y_pred)
@@ -60,6 +68,8 @@ def evaluate_model_performance(X_test, y_test, model=None, pre_model_url=''):
     print('R方值: ', r2)
     rmse = np.sqrt(mse)
     print('均方根误差: ', rmse)
+
+    region_columns_name = ['上海市', '云南省', '内蒙古自治区', '北京市', '吉林省', '四川省', '天津市', '宁夏回族自治区', '安徽省', '山东省', '山西省', '广东省', '广西壮族自治区', '新疆维吾尔自治区', '江苏省', '江西省', '河北省', '河南省', '浙江省', '海南省', '湖北省', '湖南省', '甘肃省', '福建省', '西藏自治区', '贵州省', '辽宁省', '重庆市', '陕西省', '青海省', '黑龙江省']
 
     # Plot a comparison graph between actual and predicted values
     plt.figure(figsize=(10, 6))
@@ -100,7 +110,7 @@ def save_model(model, filename):
     -----------
     该函数将训练好的模型保存到磁盘。
     """
-    model.save(filename)
+    torch.save(model, filename)
 
 def prediction_future_three_years_HQ_score(input_file_path, output_file_path, pre_model_url=''):
     """

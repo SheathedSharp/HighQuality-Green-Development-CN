@@ -2,204 +2,149 @@
 Author: hiddenSharp429 z404878860@163.com
 Date: 2024-10-25 15:42:19
 LastEditors: hiddenSharp429 z404878860@163.com
-LastEditTime: 2024-10-25 15:50:27
-FilePath: /2024_tjjm/src/models/lstm_models.py
-Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
+LastEditTime: 2024-10-26 13:14:20
 '''
-from keras.models import Sequential, Model
-from keras.layers import LSTM, Dense, Dropout, Input, Add, Multiply
-from keras.optimizers import Adam
-from keras.callbacks import ReduceLROnPlateau
+import torch
+import torch.nn as nn
+import torch.optim as optim
+from torch.utils.data import TensorDataset, DataLoader
 
-def traditional_LSTM_model(X_train, y_train, X_test, y_test):
-    """
-    该函数创建一个并训练一个传统的LSTM模型来预测绿色经济得分。
+class TraditionalLSTM(nn.Module):
+    def __init__(self, input_size=64, hidden_size=16, dropout=0.15):
+        super(TraditionalLSTM, self).__init__()
+        self.lstm = nn.LSTM(input_size, hidden_size, batch_first=True)
+        self.dropout = nn.Dropout(dropout)
+        self.fc = nn.Linear(hidden_size, 1)
 
-    参数:
-    X_train (numpy.ndarray): 用于训练集的输入特征，已按LSTM输入格式重塑。
-    y_train (pandas.Series): 训练集的目标变量。
-    X_test (numpy.ndarray): 用于测试集的输入特征，已按LSTM输入格式重塑。
-    y_test (pandas.Series): 测试集的目标变量。
+    def forward(self, x):
+        lstm_out, _ = self.lstm(x)
+        out = self.dropout(lstm_out[:, -1, :])
+        out = self.fc(out)
+        return out
 
-    返回:
-    model (keras.models.Sequential): 用于预测绿色经济得分的经过训练的LSTM模型。
-    """
+class StackedLSTM(nn.Module):
+    def __init__(self, input_size=64, hidden_sizes=[128, 64, 32, 16], dropout=0.15):
+        super(StackedLSTM, self).__init__()
+        self.lstm_layers = nn.ModuleList()
+        self.dropout_layers = nn.ModuleList()
 
-    d = 0.15  # 丢弃率
+        for i, hidden_size in enumerate(hidden_sizes):
+            self.lstm_layers.append(nn.LSTM(input_size if i == 0 else hidden_sizes[i-1],
+                                            hidden_size,
+                                            batch_first=True))
+            self.dropout_layers.append(nn.Dropout(dropout))
 
-    # 创建LSTM模型
-    model = Sequential()
-    model.add(LSTM(16, activation='relu', input_shape=(1, 64)))
-    model.add(Dropout(d))  # 建立的遗忘层
-    model.add(Dense(1))  # 输出层
+        self.fc = nn.Linear(hidden_sizes[-1], 1)
 
-    # 创建一个新的Adam优化器，学习率为0.01
-    optimizer = Adam(learning_rate=0.01)
+    def forward(self, x):
+        for lstm, dropout in zip(self.lstm_layers, self.dropout_layers):
+            x, _ = lstm(x)
+            x = dropout(x)
+        out = self.fc(x[:, -1, :])
+        return out
 
-    # 在模型的compile方法中使用新的优化器和均方误差损失函数
-    model.compile(optimizer=optimizer, loss='mse')
+class DynamicResidualStackedLSTM(nn.Module):
+    def __init__(self, input_size=64, hidden_sizes=[128, 64, 32, 16, 8], dropout=0.15):
+        super(DynamicResidualStackedLSTM, self).__init__()
+        self.lstm_layers = nn.ModuleList()
+        self.dropout_layers = nn.ModuleList()
+        self.dynamic_residual_layers = nn.ModuleList()
 
-    # 训练模型
-    model.fit(X_train, y_train, epochs=100, batch_size=18, verbose=1, validation_data=(X_test, y_test))
+        for i, hidden_size in enumerate(hidden_sizes):
+            lstm_input_size = input_size if i == 0 else hidden_sizes[i-1]
+            self.lstm_layers.append(nn.LSTM(lstm_input_size, hidden_size, batch_first=True))
+            self.dropout_layers.append(nn.Dropout(dropout))
+            if i > 0: 
+                self.dynamic_residual_layers.append(nn.Linear(lstm_input_size, hidden_size))
 
+        self.fc = nn.Linear(hidden_sizes[-1], 1)
+
+    def forward(self, x):
+        for i, (lstm, dropout) in enumerate(zip(self.lstm_layers, self.dropout_layers)):
+            residual = x
+            x, _ = lstm(x)
+            x = dropout(x)
+            
+            if i > 0: 
+                dynamic_weight = torch.sigmoid(self.dynamic_residual_layers[i-1](residual))
+                if residual.size(-1) != x.size(-1):
+                    residual = self.dynamic_residual_layers[i-1](residual)
+                x = x + dynamic_weight * residual
+
+        out = self.fc(x[:, -1, :])
+        return out
+
+def train_model(model, X_train, y_train, X_test, y_test, epochs=100, batch_size=18, lr=0.01, patience=15):
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    model.to(device)
+
+    if len(X_train.shape) == 2:
+        X_train = X_train.reshape(X_train.shape[0], 1, -1)
+        X_test = X_test.reshape(X_test.shape[0], 1, -1)
+
+    criterion = nn.MSELoss()
+    optimizer = optim.Adam(model.parameters(), lr=lr)
+    scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=10, min_lr=1e-6)
+
+    train_dataset = TensorDataset(torch.FloatTensor(X_train), torch.FloatTensor(y_train))
+    train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
+
+    test_dataset = TensorDataset(torch.FloatTensor(X_test), torch.FloatTensor(y_test))
+    test_loader = DataLoader(test_dataset, batch_size=batch_size)
+
+    best_val_loss = float('inf')
+    no_improve_epochs = 0
+
+    for epoch in range(epochs):
+        model.train()
+        train_loss = 0
+        for batch_X, batch_y in train_loader:
+            batch_X, batch_y = batch_X.to(device), batch_y.to(device)
+            optimizer.zero_grad()
+            outputs = model(batch_X)
+            loss = criterion(outputs, batch_y.unsqueeze(1))
+            loss.backward()
+            optimizer.step()
+            train_loss += loss.item()
+
+        model.eval()
+        val_loss = 0
+        with torch.no_grad():
+            for batch_X, batch_y in test_loader:
+                batch_X, batch_y = batch_X.to(device), batch_y.to(device)
+                outputs = model(batch_X)
+                val_loss += criterion(outputs, batch_y.unsqueeze(1)).item()
+        
+        train_loss /= len(train_loader)
+        val_loss /= len(test_loader)
+        scheduler.step(val_loss)
+        
+        if val_loss < best_val_loss:
+            best_val_loss = val_loss
+            no_improve_epochs = 0
+            torch.save(model.state_dict(), 'best_model.pth')
+        else:
+            no_improve_epochs += 1
+
+        if (epoch + 1) % 10 == 0:
+            print(f'Epoch [{epoch+1}/{epochs}], Train Loss: {train_loss:.4f}, Val Loss: {val_loss:.4f}')
+
+        if no_improve_epochs >= patience:
+            print(f'Early stopping triggered after {epoch + 1} epochs')
+            break
+
+    model.load_state_dict(torch.load('best_model.pth'))
     return model
 
+def traditional_LSTM_model(X_train, y_train, X_test, y_test):
+    model = TraditionalLSTM()
+    return train_model(model, X_train, y_train, X_test, y_test)
+
 def stack_LSTM_model(X_train, y_train, X_test, y_test):
-    """
-    该函数创建一个并训练一个堆叠式LSTM模型来预测绿色经济得分。
-
-    参数:
-    X_train (numpy.ndarray): 用于训练集的输入特征，已按LSTM输入格式重塑。
-    y_train (pandas.Series): 训练集的目标变量。
-    X_test (numpy.ndarray): 用于测试集的输入特征，已按LSTM输入格式重塑。
-    y_test (pandas.Series): 测试集的目标变量。
-
-    返回:
-    model_stack (keras.models.Sequential): 用于预测绿色经济得分的经过训练的LSTM模型。
-    """
-
-    # 定义一个学习率衰减的回调函数
-    reduce_lr = ReduceLROnPlateau(monitor='val_loss', factor=0.5, patience=10, min_lr=0.000001)
-
-    d = 0.15
-    model_stack = Sequential()  # 建立层次模型
-
-    # 添加第一个LSTM层
-    model_stack.add(LSTM(128, input_shape=(1, 64), return_sequences=True))
-    model_stack.add(Dropout(d))  # 添加一个丢弃层
-
-    # 添加第二个LSTM层
-    model_stack.add(LSTM(64, return_sequences=True))
-    model_stack.add(Dropout(d))  # 添加一个丢弃层
-
-    # 添加第三个LSTM层
-    model_stack.add(LSTM(32, return_sequences=True))
-    model_stack.add(Dropout(d))  # 添加一个丢弃层
-
-    # 添加第四个LSTM层
-    model_stack.add(LSTM(16, return_sequences=False))
-    model_stack.add(Dropout(d))  # 添加一个丢弃层
-
-    model_stack.add(Dense(1))  # 添加一个输出层
-
-    # 创建一个新的Adam优化器，学习率为0.01
-    optimizer = Adam(learning_rate=0.01)
-
-    model_stack.compile(optimizer=optimizer, loss='mse')  # 编译模型
-
-    # 训练模型
-    model_stack.fit(X_train, y_train, epochs=100, batch_size=18, verbose=1, validation_data=(X_test, y_test), callbacks=[reduce_lr])
-
-    return model_stack
+    model = StackedLSTM()
+    return train_model(model, X_train, y_train, X_test, y_test)
 
 def dynamic_residuals_stack_LSTM_model(X_train, y_train, X_test, y_test):
-    """
-    该函数创建一个并训练一个动态残差堆叠式LSTM模型来预测绿色经济得分。
-
-    参数:
-    X_train (numpy.ndarray): 用于训练集的输入特征，已按LSTM输入格式重塑。
-    y_train (pandas.Series): 训练集的目标变量。
-    X_test (numpy.ndarray): 用于测试集的输入特征，已按LSTM输入格式重塑。
-    y_test (pandas.Series): 测试集的目标变量。
-
-    该函数首先定义一个学习率衰减的回调函数，然后添加丢弃率、LSTM层和残差连接。
-    接着添加动态残差权重学习层，并使用动态残差调整原始残差。
-    最后，添加输出层并编译模型，然后在模型中使用新的优化器和均方误差损失函数进行训练。
-
-    该函数返回一个经过训练的LSTM模型。
-
-    注：这里已经保存好了最优的模型"best_model.h5"，在model文件中
-    """
-
-    # 定义一个学习率衰减的回调函数
-    reduce_lr = ReduceLROnPlateau(monitor='val_loss', factor=0.5, patience=20, min_lr=0.0000001)
-
-    d = 0.15
-
-    # 使用Input层定义输入
-    inputs = Input(shape=(1, 64))
-
-    # 第一个LSTM层
-    lstm1 = LSTM(128, return_sequences=True)(inputs)
-    dropout1 = Dropout(d)(lstm1)
-    dense1 = Dense(64)(dropout1) # 添加一个全连接层以改变形状
-
-    # 添加残差连接
-    residual1 = Add()([inputs, dense1])
-
-    # 添加动态残差权重学习层
-    dynamic_residual1 = Dense(64, activation='sigmoid')(residual1)
-
-    # 使用动态残差调整原始残差
-    adjusted_residual1 = Multiply()([residual1, dynamic_residual1])
-
-    # 第二个LSTM层
-    lstm2 = LSTM(64, return_sequences=True)(adjusted_residual1)
-    dropout2 = Dropout(d)(lstm2)
-
-    # 添加残差连接
-    residual2 = Add()([residual1, dropout2])
-
-    # 添加动态残差权重学习层
-    dynamic_residual2 = Dense(64, activation='sigmoid')(residual2)
-
-    # 使用动态残差调整原始残差
-    adjusted_residual2 = Multiply()([residual2, dynamic_residual2])
-
-    # 第三个LSTM层
-    lstm3 = LSTM(32, return_sequences=True)(adjusted_residual2)
-    dropout3 = Dropout(d)(lstm3)
-    dense2 = Dense(64)(dropout3) # 添加一个全连接层以改变形状
-
-    # 添加残差连接
-    residual3 = Add()([residual2, dense2])
-
-    # 添加动态残差权重学习层
-    dynamic_residual3 = Dense(64, activation='sigmoid')(residual3)
-
-    # 使用动态残差调整原始残差
-    adjusted_residual3 = Multiply()([residual3, dynamic_residual3])
-
-    # 第四个LSTM层
-    lstm4 = LSTM(16, return_sequences=True)(adjusted_residual3)
-    dropout4 = Dropout(d)(lstm4)
-    dense3 = Dense(64)(dropout4) # 添加一个全连接层以改变形状
-
-    # 添加残差连接
-    residual4 = Add()([residual3, dense3])
-
-    # 添加动态残差权重学习层
-    dynamic_residual4 = Dense(64, activation='sigmoid')(residual4)
-
-    # 使用动态残差调整原始残差
-    adjusted_residual4 = Multiply()([residual4, dynamic_residual4])
-
-    # 第五个LSTM层
-    lstm5 = LSTM(8, return_sequences=False)(adjusted_residual4)
-    dropout5 = Dropout(d)(lstm5)
-    dense4 = Dense(64)(dropout5) # 添加一个全连接层以改变形状
-
-    # 添加残差连接
-    residual5 = Add()([residual4, dense4])
-
-    # 添加动态残差权重学习层
-    dynamic_residual5 = Dense(64, activation='sigmoid')(residual5)
-
-    # 使用动态残差调整原始残差
-    adjusted_residual5 = Multiply()([residual5, dynamic_residual5])
-
-    # 输出层
-    outputs = Dense(1)(adjusted_residual5)
-
-    # 创建模型
-    dynamic_model = Model(inputs=inputs, outputs=outputs)
-
-    # 创建一个新的Adam优化器，学习率为0.01
-    optimizer = Adam(learning_rate=0.001)
-
-    dynamic_model.compile(optimizer=optimizer, loss='mae')
-
-    # 训练模型
-    dynamic_model.fit(X_train, y_train, epochs=200, batch_size=18, verbose=1, validation_data=(X_test, y_test), callbacks=[reduce_lr])
-
-    return dynamic_model
+    input_size = X_train.shape[-1] 
+    model = DynamicResidualStackedLSTM(input_size=input_size)
+    return train_model(model, X_train, y_train, X_test, y_test, epochs=200, lr=0.001)
